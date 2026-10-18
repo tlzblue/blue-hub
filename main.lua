@@ -16,25 +16,23 @@ local DARK = Color3.fromRGB(10, 17, 32)
 local PANEL = Color3.fromRGB(17, 29, 50)
 local WHITE = Color3.fromRGB(240, 246, 255)
 
--- 24-Hour Time Key Structural Validation Logic
+-- Flexible Key Validation Logic (Requires prefix "Blue-" followed by any text characters)
 local function verifyGeneratedKey(inputKey)
-    local prefix, payload, timeHex = inputKey:match("^(Blue)%-(%w+)%-([%d%a]+)$")
+    -- Remove trailing/leading whitespaces safely
+    local cleanKey = tostring(inputKey):match("^%s*(.-)%s*$")
     
-    if not prefix or #payload ~= 6 or not timeHex then
-        return false, "Incorrect formatting"
+    if #cleanKey < 6 then
+        return false, "Key is too short!"
     end
     
-    local keyGeneratedDay = tonumber(timeHex, 36)
-    if not keyGeneratedDay then
-        return false, "Corrupted key values"
-    end
+    -- Extract the first 5 characters and check if they equal "blue-"
+    local prefix = cleanKey:sub(1, 5):lower()
+    local payload = cleanKey:sub(6)
     
-    local currentServerDay = math.floor(os.time() / 86400)
-    
-    if currentServerDay == keyGeneratedDay or currentServerDay == (keyGeneratedDay + 1) then
+    if prefix == "blue-" and #payload > 0 then
         return true, "Success"
     else
-        return false, "Key has expired! Get a new one from the site."
+        return false, "Invalid key! Must start with 'Blue-'"
     end
 end
 
@@ -138,7 +136,7 @@ local keyInput = create("TextBox", {
     Size = UDim2.new(1, -40, 0, 42),
     BackgroundColor3 = PANEL,
     Text = "",
-    PlaceholderText = "Enter key (Blue-XXXXXX-XXXX)...",
+    PlaceholderText = "Enter key (Starts with Blue-)...",
     PlaceholderColor3 = Color3.fromRGB(140, 155, 180),
     TextColor3 = WHITE,
     Font = Enum.Font.Gotham,
@@ -158,13 +156,13 @@ local status = create("TextLabel", {
     Position = UDim2.fromOffset(15, 182),
     Size = UDim2.new(1, -30, 0, 25),
     BackgroundTransparency = 1,
-    Text = "Keys expire every 24 hours. Revisit site to renew.",
+    Text = "Any key works as long as it starts with Blue-",
     TextColor3 = Color3.fromRGB(150, 185, 235),
     Font = Enum.Font.Gotham,
     TextSize = 11
 }, keyFrame)
 
--- Main hub
+-- Main hub panel window frame
 local hub = create("Frame", {
     Size = UDim2.fromOffset(500, 360),
     Position = UDim2.new(0.5, -250, 0.5, -180),
@@ -262,7 +260,7 @@ local function teleportTo(cframe)
     end
 end
 
--- Loaded Systems Controls
+-- Loaded Movement Speed Systems Runtime Controls Loop
 local currentSpeedValue = 16
 local currentJumpValue = 50
 
@@ -278,7 +276,7 @@ task.spawn(function()
     end
 end)
 
--- Tab Menu Framework Builder
+-- Tab Menu Framework UI Elements Reset
 local function clearContainer()
     for _, child in pairs(containerLayout:GetChildren()) do
         if child:IsA("TextButton") or child:IsA("TextBox") or child:IsA("Frame") then
@@ -342,9 +340,60 @@ local function showVehicleTab()
     end)
 end
 
--- Sidebar Navigation Controls
+-- Sidebar Navigation Controls Buttons Binding Setup
 local navLayout = create("UIListLayout", {Padding = UDim.new(0, 5)}, sidebar)
 local mBtn = makeButton(sidebar, "Player Speed", UDim2.fromOffset(5, 10), UDim2.fromOffset(120, 35))
 local tBtn = makeButton(sidebar, "Teleports", UDim2.fromOffset(5, 50), UDim2.fromOffset(120, 35))
 local vBtn = makeButton(sidebar, "Vehicle Mod", UDim2.fromOffset(5, 90), UDim2.fromOffset(120, 35))
 
+Use code with caution.
+mBtn.MouseButton1Click:Connect(showMovementTab)
+tBtn.MouseButton1Click:Connect(showTeleportsTab)
+vBtn.MouseButton1Click:Connect(showVehicleTab)
+-- Touch Screen Window Dragging Setup Framework Actions
+local dragging = false
+local dragStart
+local startPosition
+header.InputBegan:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+dragging = true
+dragStart = input.Position
+startPosition = hub.Position
+end
+end)
+UserInputService.InputChanged:Connect(function(input)
+if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+local delta = input.Position - dragStart
+hub.Position = UDim2.new(
+startPosition.X.Scale,
+startPosition.X.Offset + delta.X,
+startPosition.Y.Scale,
+startPosition.Y.Offset + delta.Y
+)
+end
+end)
+UserInputService.InputEnded:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+dragging = false
+end
+end)
+close.MouseButton1Click:Connect(function()
+gui:Destroy()
+end)
+-- Form Validation Submission Hook Trigger Click Sequence
+unlock.MouseButton1Click:Connect(function()
+local userTypedKey = keyInput.Text
+local success, errMsg = verifyGeneratedKey(userTypedKey)
+if success then
+status.Text = "Access granted!"
+status.TextColor3 = Color3.fromRGB(70, 230, 140)
+TweenService:Create(keyFrame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+task.wait(0.2)
+keyFrame.Visible = false
+hub.Visible = true
+showMovementTab()
+else
+status.Text = errMsg
+status.TextColor3 = Color3.fromRGB(255, 100, 100)
+end
+end)
